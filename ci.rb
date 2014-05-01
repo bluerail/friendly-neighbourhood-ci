@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 #
 # Your friendly neighbourhood continues integration annoyer
-# Simple continues integration script
 # https://github.com/bluerail/friendly-neighbourhood-ci
 # 
 # Copyright © 2014 Martin Tournoij <martin@lico.nl>
@@ -24,17 +23,18 @@ class Tester
       dryrun: false,
       runalways: false,
       mailto: '%a,%c',
-      from: 'ci@lico.nl',
+      from: 'ci@example.com',
       testcmd: 'bundle exec rake'
     }
 
     if File.exists? "#{@repo}/.ci-settings.yaml"
-      YAML.load_file("#{@repo}/.ci-settings".yaml).each do |k, v|
+      YAML.load_file("#{@repo}/.ci-settings.yaml").each do |k, v|
         defaults[k.to_sym] = v
       end
     end
 
     @options = defaults.merge options
+    verbose @options
   end
 
 
@@ -108,18 +108,20 @@ class Tester
 
   def run_tests
     verbose "Running tests for #{@repo} #{@branch}"
+
     if @options[:dryrun]
       out = '-n given'
-      status = 0
+      status = [0]
     else
-      #cmd = File.exists "#{@repo}/.ci-settings"
-
-      out = `cd #{@repo} && #{@options[:testcmd]} 2>&1`
-      status = $?.exitstatus
+      status = []
+      @options[:testcmd].split("\n").each do |cmd|
+        out = `cd #{@repo} && #{cmd} 2>&1`
+        status << $?.exitstatus
+      end
     end
-    verbose "Success: #{status}"
 
-    return [status == 0, out]
+    verbose "Success: #{status}"
+    return [status.sort[-1] == 0, out]
   end
 
 
@@ -139,7 +141,10 @@ class Tester
     msg << "    #{last[:hash]}"
     msg << ""
     msg << ""
-    msg << "Output of #{@options[:testcmd]}:"
+    msg << "Commands:"
+    msg << "    #{@options[:testcmd].gsub("\n", "\n    ")}"
+    msg << ""
+    msg << "Output:"
     msg << ""
     msg << "    #{output.gsub("\n", "\n    ")}"
     msg << ""
@@ -150,12 +155,18 @@ class Tester
 
     msg = msg.join "\r\n"
 
-    Net::SMTP.start('localhost') do |smtp|
-      smtp.send_message(
-        msg,
-        @options[:from],
-        @options[:mailto].sub('%a', last[:author]).sub('%c', last[:committer])
-      )
+    begin
+      Net::SMTP.start('localhost') do |smtp|
+        smtp.send_message(
+          msg,
+          @options[:from],
+          @options[:mailto].sub('%a', last[:author]).sub('%c', last[:committer]).split(',')
+        )
+      end
+    rescue => exc
+      puts "Error: Unable to send email!"
+      puts msg
+      raise exc
     end
   end
 
