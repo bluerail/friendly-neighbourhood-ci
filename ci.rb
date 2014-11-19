@@ -6,6 +6,12 @@
 # Copyright © 2014 Martin Tournoij <martin@lico.nl>
 # See the end of the file for full copyright
 #
+# TODO:
+# - Make sure we have a config/{config,database}.yml
+# - Make sure bin/rake db:migrate RAILS_ENV=test is run
+# - rake db:drop db:create db:reset db:migrate postal_codes db:seed
+# - Set environment variales (DISPLAY=:1)
+#
 
 
 require 'net/smtp'
